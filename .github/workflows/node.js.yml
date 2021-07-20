@@ -12,9 +12,29 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 14.x
+  
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.x
     - name: Install dependencies
-      run: npm ci --also=dev
-    - name: Run Linter
       run: |
-        npm run lint 
+        python -m pip install --upgrade pip
+        pip3 install slither-analyzer solc-select
+        solc-select install 0.6.11
+        solc-select use 0.6.11
+    - name: Run slither audit
+      run: |
+        slither . --ignore-compile --filter-paths "node_modules" --disable-color --print human-summary > slither-audit.txt 2>&1
+
+        echo "##vso[task.setvariable variable=slitherAuditRun]yes";
+        export LError=${{ env.grep 'low issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+        export MError=${{ env.grep 'medium issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+        export HError=${{ env.grep 'high issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+
+        echo -en '-------------------------------
+
+    
+    
+        
 
