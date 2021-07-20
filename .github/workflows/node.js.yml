@@ -1,32 +1,68 @@
-# This workflow will do a clean install of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
-name: Node.js CI
-
 on:
-  workflow_dispatch: 
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+    branches:
+    - main
+  workflow_dispatch:
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [12.x, 14.x, 16.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
     - uses: actions/checkout@v2
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2
+    - name: Install Node.js
+      uses: actions/setup-node@v1
       with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
+        node-version: 14.x
+    - name: Install dependencies
+      run: npm ci --also=dev
+    - name: Run Linter
+      run: |
+        npm run lint > linter-log.txt 2>&1
+        if [ $? -ne 0 ]; then
+          echo "##vso[task.setvariable variable=linterLog]${{ env.cat linter-log.txt | sed '1,/> eslint ./d;/npm ERR!/,$d' | sed '/./,$!d' | sed ':a;N;$!ba;s/
+/%0D%0A/g' }}"
+        fi
+      continue-on-error: true
+    - name: Compile contracts
+      run: npm run compile
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip3 install slither-analyzer solc-select
+        solc-select install 0.6.11
+        solc-select use 0.6.11
+    - name: Run slither audit
+      run: |
+        slither . --ignore-compile --filter-paths "node_modules" --disable-color --print human-summary > slither-audit.txt 2>&1
 
+        echo "##vso[task.setvariable variable=slitherAuditRun]yes";
+        export LError=${{ env.grep 'low issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+        export MError=${{ env.grep 'medium issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+        export HError=${{ env.grep 'high issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
+
+        echo -en '-------------------------------
+
+
+# Details:
+##############################
+
+' >> slither-audit.txt
+        slither . --ignore-compile --filter-paths "node_modules" --disable-color >> slither-audit.txt 2>&1
+        if [ ! -z "${LError}" ] || [ ! -z "${MError}" ] || [ ! -z "${HError}" ] ; then 
+          echo "##vso[task.complete result=Failed;]Slither found a issue." ;
+        fi
+        echo "##vso[task.setvariable variable=slitherAudit]${{ env.cat slither-audit.txt | sed ':a;N;$!ba;s/
+/%0D%0A/g' }}"
+    - run: Copy '/slither-audit.txt' '${{ github.workspace }}'
+      if: ((${{ job.status }} != 'cancelled') && (variables.slitherAuditRun =='yes'))
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ${{ github.workspace }}
+        name: slither-audit
+      if: ((${{ job.status }} != 'cancelled') && (variables.slitherAuditRun =='yes'))
+    - name: Run tests and coverage
+      run: npm run coverage
+                    
