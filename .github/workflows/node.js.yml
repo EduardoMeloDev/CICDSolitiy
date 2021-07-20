@@ -19,4 +19,9 @@ jobs:
         npm run lint > linter-log.txt 2>&1
         if [ $? -ne 0 ]; then
           echo "##vso[task.setvariable variable=linterLog]${{ env.cat linter-log.txt | sed '1,/> eslint ./d;/npm ERR!/,$d' | sed '/./,$!d' | sed ':a;N;$!ba;s/
-/%0D%0A/g' }}"
+/%0D%0A/g' }}" fi
+
+continue-on-error: true
+
+
+
