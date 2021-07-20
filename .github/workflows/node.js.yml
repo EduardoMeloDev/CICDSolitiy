@@ -27,7 +27,7 @@ jobs:
       run: |
         slither . --ignore-compile --filter-paths "node_modules" --disable-color --print human-summary > slither-audit.txt 2>&1
 
-        echo "##vso[task.setvariable variable=slitherAuditRun]yes";
+        echo '##vso[task.setvariable variable=slitherAuditRun]yes';
         export LError=${{ env.grep 'low issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
         export MError=${{ env.grep 'medium issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
         export HError=${{ env.grep 'high issues' slither-audit.txt | sed 's/[a-zA-Z:0 ]//g' }}
