@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: slither-static-analysis
-    uses: luisfontes19/slither-static-analysis-action@v0.3.3
+    - uses: luisfontes19/slither-static-analysis-action@v0.3.3
 
     
 
