@@ -9,6 +9,7 @@ jobs:
     steps:
     - name: slither-static-analysis
     - uses: luisfontes19/slither-static-analysis-action@v0.3.3
+    
 
     
 
